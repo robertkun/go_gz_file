@@ -58,8 +58,8 @@ func main() {
 	bgz := flag.Bool("g", false, "读取压缩格式文件, 默认:false")
 	nsp := flag.Int("s", 0, "每次处理sleep毫秒数, 默认:0毫秒")
 	nblk := flag.Int("b", 1024, "文件读取块大小, 默认1024KB")
-	fin := flag.String("i", "", "输入文件")
-	fout := flag.String("o", "", "输出文件")
+	fin := flag.String("i", "", "输入文件, 需要追加的文件")
+	fout := flag.String("o", "", "输出文件, 需要读取的文件")
 	flag.Parse()
 
 	if *fin == "" {
@@ -79,8 +79,8 @@ func main() {
 	bline := *bln
 	bgzfile := *bgz
 
-	fmt.Printf("输入文件:%v\n", fn_in)
-	fmt.Printf("输出文件:%v\n", fn_out)
+	fmt.Printf("输入文件:%v\n", fn_out)
+	fmt.Printf("输出文件:%v\n", fn_in)
 	fmt.Printf("处理间隔:%v毫秒\n", nSleep)
 	fmt.Printf("按行处理:%v\n", bline)
 	fmt.Printf("读取块大小:%v\n", nBlock)
@@ -88,39 +88,39 @@ func main() {
 	fmt.Println("\n--- 开始处理 ---")
 
 	if bline {
-		AppendByLine(fn_in, fn_out, nSleep, bgzfile)
+		AppendByLine(fn_out, fn_in, nSleep, bgzfile)
 	} else {
-		AppendByBlock(fn_in, fn_out, nSleep, nBlock, bgzfile)
+		AppendByBlock(fn_out, fn_in, nSleep, nBlock, bgzfile)
 	}
 }
 
-func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
+func AppendByLine(fn_out, fn_in string, nRate int, bgzfile bool) {
 	start := time.Now()
-	paths, _ := filepath.Split(fn_in)
+	paths, _ := filepath.Split(fn_out)
 	MakeDir(paths)
 
-	_, err := os.Stat(fn_out)
+	_, err := os.Stat(fn_in)
 	if err != nil {
 		fmt.Println("获取文件状态失败! err:", err)
 		return
 	}
 
-	bExistd, err := FileExists(fn_out)
+	bExistd, err := FileExists(fn_in)
 	if err != nil {
 		return
 	}
 
 	if !bExistd {
-		fmt.Printf("文件:%v不存在!\n", fn_out)
+		fmt.Printf("文件:%v不存在!\n", fn_in)
 		return
 	}
 
 	/*-----------------------------------------------------
 	打开待处理的gz格式文件
 	-----------------------------------------------------*/
-	fr_in, err := os.OpenFile(fn_in, os.O_RDWR|os.O_CREATE|os.O_APPEND,644)
+	fr_in, err := os.OpenFile(fn_out, os.O_RDWR|os.O_CREATE|os.O_APPEND,644)
 	if err != nil {
-		fmt.Println("-------- file open failed!", fn_in)
+		fmt.Println("-------- file open failed!", fn_out)
 		return
 	}
 
@@ -133,9 +133,9 @@ func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
 	/*-----------------------------------------------------
 	打开待读取gz格式文件
 	-----------------------------------------------------*/
-	fr_out, err := os.Open(fn_out)
+	fr_out, err := os.Open(fn_in)
 	if err != nil {
-		fmt.Println("-------- file open failed!", fn_out)
+		fmt.Println("-------- file open failed!", fn_in)
 		return
 	}
 
@@ -146,7 +146,7 @@ func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
 		// 创建gzip文件读取对象
 		gr_out, err := gzip.NewReader(fr_out)
 		if err != nil {
-			fmt.Println("-------- file read failed!", fn_out)
+			fmt.Println("-------- file read failed!", fn_in)
 			return
 		}
 
@@ -163,7 +163,7 @@ func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
 				//fmt.Printf("file:%v, io.EOF! error! Err:%v\n", fn, err)
 				break
 			} else {
-				fmt.Printf("file:%v, read file error! Err:%v\n", fn_out, err)
+				fmt.Printf("file:%v, read file error! Err:%v\n", fn_in, err)
 				break
 			}
 		}
@@ -183,36 +183,36 @@ func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
 	}
 
 	elapsed := time.Since(start)
-	fmt.Printf("--- 文件:%v处理完成! 共处理:%v行, 耗时:%vms!\n", fn_out, line, elapsed.Nanoseconds()/1e6)
+	fmt.Printf("--- 文件:%v处理完成! 共处理:%v行, 耗时:%vms!\n", fn_in, line, elapsed.Nanoseconds()/1e6)
 }
 
-func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
+func AppendByBlock(fn_out, fn_in string, nRate, nBlock int, bgzfile bool) {
 	start := time.Now()
-	paths, _ := filepath.Split(fn_in)
+	paths, _ := filepath.Split(fn_out)
 	MakeDir(paths)
 
-	_, err := os.Stat(fn_out)
+	_, err := os.Stat(fn_in)
 	if err != nil {
 		fmt.Println("获取文件状态失败! err:", err)
 		return
 	}
 
-	bExistd, err := FileExists(fn_out)
+	bExistd, err := FileExists(fn_in)
 	if err != nil {
 		return
 	}
 
 	if !bExistd {
-		fmt.Printf("文件:%v不存在!\n", fn_out)
+		fmt.Printf("文件:%v不存在!\n", fn_in)
 		return
 	}
 
 	/*-----------------------------------------------------
 	打开待处理的gz格式文件
 	-----------------------------------------------------*/
-	fr_in, err := os.OpenFile(fn_in, os.O_RDWR|os.O_CREATE|os.O_APPEND,644)
+	fr_in, err := os.OpenFile(fn_out, os.O_RDWR|os.O_CREATE|os.O_APPEND,644)
 	if err != nil {
-		fmt.Println("-------- file open failed!", fn_in)
+		fmt.Println("-------- file open failed!", fn_out)
 		return
 	}
 
@@ -225,9 +225,9 @@ func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
 	/*-----------------------------------------------------
 	打开待读取gz格式文件
 	-----------------------------------------------------*/
-	fr_out, err := os.Open(fn_out)
+	fr_out, err := os.Open(fn_in)
 	if err != nil {
-		fmt.Println("-------- file open failed!", fn_out)
+		fmt.Println("-------- file open failed!", fn_in)
 		return
 	}
 
@@ -238,7 +238,7 @@ func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
 		// 创建gzip文件读取对象
 		gr_out, err := gzip.NewReader(fr_out)
 		if err != nil {
-			fmt.Println("-------- err: file read failed!", fn_out, err)
+			fmt.Println("-------- err: file read failed!", fn_in, err)
 			return
 		}
 
@@ -255,7 +255,7 @@ func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
 				//fmt.Printf("file:%v, io.EOF! error! Err:%v\n", fn, err)
 				break
 			} else {
-				fmt.Printf("file:%v, read file error! Err:%v\n", fn_out, err)
+				fmt.Printf("file:%v, read file error! Err:%v\n", fn_in, err)
 				break
 			}
 		}
@@ -284,5 +284,5 @@ func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
 	}
 
 	elapsed := time.Since(start)
-	fmt.Printf("--- 文件:%v处理完成! 共处理:%v次, 耗时:%vms!\n", fn_out, line, elapsed.Nanoseconds()/1e6)
+	fmt.Printf("--- 文件:%v处理完成! 共处理:%v次, 耗时:%vms!\n", fn_in, line, elapsed.Nanoseconds()/1e6)
 }
