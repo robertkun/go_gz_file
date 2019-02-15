@@ -54,11 +54,12 @@ func MakeDir(path string) error {
 }
 
 func main() {
-	bln := flag.Bool("l", false, "按行模式处理, 默认按块处理")
-	nsp := flag.Int("s", 0, "每次处理sleep毫秒数, 默认0毫秒")
+	bln := flag.Bool("l", false, "按行模式处理, 默认:按块模式处理")
+	bgz := flag.Bool("g", false, "读取压缩格式文件, 默认:false")
+	nsp := flag.Int("s", 0, "每次处理sleep毫秒数, 默认:0毫秒")
 	nblk := flag.Int("b", 1024, "文件读取块大小, 默认1024KB")
-	fin := flag.String("i", "", "输入文件目录")
-	fout := flag.String("o", "", "输出文件目录")
+	fin := flag.String("i", "", "输入文件")
+	fout := flag.String("o", "", "输出文件")
 	flag.Parse()
 
 	if *fin == "" {
@@ -76,22 +77,24 @@ func main() {
 	fn_in := *fin
 	fn_out := *fout
 	bline := *bln
+	bgzfile := *bgz
 
 	fmt.Printf("输入文件:%v\n", fn_in)
 	fmt.Printf("输出文件:%v\n", fn_out)
 	fmt.Printf("处理间隔:%v毫秒\n", nSleep)
 	fmt.Printf("按行处理:%v\n", bline)
 	fmt.Printf("读取块大小:%v\n", nBlock)
+	fmt.Printf("是否处理压缩格式文件:%v\n", bgzfile)
 	fmt.Println("\n--- 开始处理 ---")
 
 	if bline {
-		AppendByLine(fn_in, fn_out, nSleep)
+		AppendByLine(fn_in, fn_out, nSleep, bgzfile)
 	} else {
-		AppendByBlock(fn_in, fn_out, nSleep, nBlock)
+		AppendByBlock(fn_in, fn_out, nSleep, nBlock, bgzfile)
 	}
 }
 
-func AppendByLine(fn_in, fn_out string, nRate int) {
+func AppendByLine(fn_in, fn_out string, nRate int, bgzfile bool) {
 	start := time.Now()
 	paths, _ := filepath.Split(fn_in)
 	MakeDir(paths)
@@ -138,16 +141,19 @@ func AppendByLine(fn_in, fn_out string, nRate int) {
 
 	defer fr_out.Close()
 
-	// 创建gzip文件读取对象
-	gr_out, err := gzip.NewReader(fr_out)
-	if err != nil {
-		fmt.Println("-------- file read failed!", fn_out)
-		return
+	buf_out := bufio.NewReader(fr_out)
+	if bgzfile {
+		// 创建gzip文件读取对象
+		gr_out, err := gzip.NewReader(fr_out)
+		if err != nil {
+			fmt.Println("-------- file read failed!", fn_out)
+			return
+		}
+
+		defer gr_out.Close()
+		buf_out = bufio.NewReader(gr_out)
 	}
 
-	defer gr_out.Close()
-
-	buf_out := bufio.NewReader(gr_out)
 	line := 0
 	for {
 		strline, err := buf_out.ReadString('\n')
@@ -180,7 +186,7 @@ func AppendByLine(fn_in, fn_out string, nRate int) {
 	fmt.Printf("--- 文件:%v处理完成! 共处理:%v行, 耗时:%vms!\n", fn_out, line, elapsed.Nanoseconds()/1e6)
 }
 
-func AppendByBlock(fn_in, fn_out string, nRate, nBlock int) {
+func AppendByBlock(fn_in, fn_out string, nRate, nBlock int, bgzfile bool) {
 	start := time.Now()
 	paths, _ := filepath.Split(fn_in)
 	MakeDir(paths)
@@ -227,16 +233,19 @@ func AppendByBlock(fn_in, fn_out string, nRate, nBlock int) {
 
 	defer fr_out.Close()
 
-	// 创建gzip文件读取对象
-	gr_out, err := gzip.NewReader(fr_out)
-	if err != nil {
-		fmt.Println("-------- file read failed!", fn_out)
-		return
+	buf_out := bufio.NewReader(fr_out)
+	if bgzfile {
+		// 创建gzip文件读取对象
+		gr_out, err := gzip.NewReader(fr_out)
+		if err != nil {
+			fmt.Println("-------- err: file read failed!", fn_out, err)
+			return
+		}
+
+		defer gr_out.Close()
+		buf_out = bufio.NewReader(gr_out)
 	}
 
-	defer gr_out.Close()
-
-	buf_out := bufio.NewReader(gr_out)
 	line := 0
 	for {
 		buf := make([]byte, nBlock)
